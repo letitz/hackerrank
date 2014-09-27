@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+# https://www.hackerrank.com/challenges/service-lane
+
 import sys
 
 def nextints():

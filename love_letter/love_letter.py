@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+# https://www.hackerrank.com/challenges/the-love-letter-mystery
+
 import sys
 
 def char_distance(ca,cb):
