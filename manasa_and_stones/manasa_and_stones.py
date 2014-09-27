@@ -7,8 +7,10 @@ import sys
 def print_possible_values(num_stones, a, b):
     if num_stones <= 1:
         print(0)
+        return
     if a == b:
         print((num_stones - 1) * a)
+        return
     if a > b:
         tmp = a
         a = b
