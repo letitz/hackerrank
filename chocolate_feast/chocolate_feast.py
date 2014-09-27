@@ -7,7 +7,7 @@ import sys
 def num_chocolates(money, cost, exchange):
     choco = money // cost
     wrappers = choco
-    while wrappers > exchange:
+    while wrappers >= exchange:
         exch_choco, wrappers = divmod(wrappers, exchange)
         wrappers += exch_choco
         choco += exch_choco
