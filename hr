@@ -1,13 +1,13 @@
 #!/bin/bash
 
 new() {
-	case "$1" in
-		"py")
-			mkdir "$2" && cp skel.py "$2/$2.py" ;;
-	esac
+    case "$1" in
+        "py")
+            mkdir "$2" && cp skel.py "$2/$2.py" ;;
+    esac
 }
 
 case "$1" in
-	"new")
-		new "${@:2}" ;;
+    "new")
+        new "${@:2}" ;;
 esac
