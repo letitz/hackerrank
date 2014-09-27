@@ -4,10 +4,14 @@ new() {
     case "$1" in
         "py")
             mkdir "$2" && cp skel.py "$2/$2.py" ;;
+        *)
+            echo "Unknown command: new $1" ;;
     esac
 }
 
 case "$1" in
     "new")
         new "${@:2}" ;;
+    *)
+        echo "Unknown command: $1" ;;
 esac
