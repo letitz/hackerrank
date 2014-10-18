@@ -40,14 +40,47 @@ size_t read_ints(char *str, int **ints) {
     return i;
 }
 
+int read_adp(int n, int (*adp)[3]) {
+    if (n < 1) {
+        return 1;
+    }
+    char buf[BUF_SIZE];
+    int *ints;
+    size_t ints_len;
+
+    int i;
+    for (i = 0; i < n; i++) {
+        fgets(buf, BUF_SIZE, stdin);
+        ints_len = read_ints(buf, &ints);
+        if (ints_len != 3) {
+            return 1;
+        }
+        adp[i][0] = ints[0];
+        adp[i][1] = ints[1];
+        adp[i][2] = ints[2];
+    }
+    return 0;
+}
+
 int main(int argc, char **argv) {
     char buf[BUF_SIZE];
     fgets(buf, BUF_SIZE, stdin);
-    int *ints;
-    size_t numints =  read_ints(buf, &ints);
-    int i;
-    for (i = 0; i < numints; i++) {
-        printf("%d\n", ints[i]);
+
+    char *end;
+    int n = strtol(buf, &end, 10);
+    if (!isspace(*end)) {
+        return 0;
     }
+
+    int (*adp)[3] = malloc(3 * n * sizeof **adp);
+    int err = read_adp(n, adp);
+    if (err) {
+        return 0;
+    }
+    int i;
+    for (i = 0; i < n; i++) {
+        printf("%d %d %d\n", adp[i][0], adp[i][1], adp[i][2]);
+    }
+
     return 0;
 }
