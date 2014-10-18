@@ -5,6 +5,7 @@
 #define INTS_START_SIZE 8
 #define INTS_DELIM " \t\n"
 #define BUF_SIZE 1024
+#define BIG_MOD 1000003
 
 size_t read_ints(char *str, int **ints) {
     if (str == NULL) {
@@ -60,11 +61,56 @@ int read_adp(int n, int (*adp)[3]) {
     return 0;
 }
 
+int pow_mod(int a, int b, int mod, int acc) {
+    int powa = a % mod;
+    while (b > 0) {
+        if (b & 1) {
+            acc = (acc * powa) % mod;
+        }
+        powa = (powa * powa) % mod;
+        b >>= 1;
+    }
+    return acc;
+}
+
+int factorial_mod(int n, int mod, int acc) {
+    int i;
+    for (i = 2; i <= n; i++) {
+        acc = (acc * i) % mod;
+    }
+    return acc;
+}
+
 int min_const_diff(int n, int (*adp)[3], int i, int j) {
+    if (i < 1 || j > n) {
+        return 1;
+    }
+    int k = 0;
+    int v = 1;
+    int l;
+    for (l = i-1; l < j; l++) {
+        if (adp[l][2] > 0) {
+            k += adp[l][2];
+            if (adp[l][1] == 0) {
+                v = pow_mod(adp[l][0], adp[l][2], BIG_MOD, v);
+            } else {
+                v = pow_mod(adp[l][1], adp[l][2], BIG_MOD, v);
+            }
+        }
+    }
+    v = factorial_mod(k, BIG_MOD, v);
+    printf("%d %d\n", k, v);
     return 0;
 }
 
 int add_powers(int n, int (*adp)[3], int i, int j, int v) {
+    if (i < 1 || j > n) {
+        return 1;
+    }
+    int k;
+    for (k = i-1; k < j; k++) {
+        adp[k][2] += v;
+    }
     return 0;
 }
 
@@ -108,10 +154,6 @@ int main(int argc, char **argv) {
     if (err) {
         return 0;
     }
-    int i;
-    for (i = 0; i < n; i++) {
-        printf("%d %d %d\n", adp[i][0], adp[i][1], adp[i][2]);
-    }
 
     fgets(buf, BUF_SIZE, stdin);
     int q = strtol(buf, &end, 10);
@@ -119,6 +161,7 @@ int main(int argc, char **argv) {
         return 0;
     }
 
+    int i;
     for (i = 0; i < q; i++) {
         fgets(buf, BUF_SIZE, stdin);
         err = handle_query(buf, n, adp);
