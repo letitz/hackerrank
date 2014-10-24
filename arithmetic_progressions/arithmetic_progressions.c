@@ -14,7 +14,54 @@ struct adp {
     long a;
     long d;
     long p;
+    long factor;
 };
+
+// Add val to element i in fenwick tree
+void fenwick_update(long *fenwick, size_t n, size_t i, long val) {
+    i++;
+    if (i < 1 || i > n) {
+        return;
+    }
+    while (i <= n) {
+        fenwick[i-1] += val;
+        i += i & -i; // parent
+    }
+}
+
+// Sum of elements in [0, i[
+long fenwick_prefixsum(long *fenwick, size_t n, size_t i) {
+    long sum = 0;
+    while (i > 0) {
+        sum += fenwick[i-1];
+        i -= i & -i; // predecessor
+    }
+    return sum;
+}
+
+// Sum of elements in [i, j[
+long fenwick_intervalsum(long *fenwick, size_t n, size_t i, size_t j) {
+    return fenwick_prefixsum(fenwick, n, j) - fenwick_prefixsum(fenwick, n, i);
+}
+
+// Add val to entire interval [i, j[ of the fenwick tree
+// Supposes the fenwick tree stores differences between elements
+void fenwick_intervalupdate(
+    long *fenwick,
+    size_t n,
+    size_t i,
+    size_t j,
+    long val)
+{
+    fenwick_update(fenwick, n, i, val);
+    fenwick_update(fenwick, n, j, -val);
+}
+
+// Get the ith value from the fenwick tree
+// Supposes the fenwick tree stores differences between elements
+long fenwick_get(long *fenwick, size_t n, size_t i) {
+    return fenwick_prefixsum(fenwick, n, i+1);
+}
 
 size_t read_ints(char *str, int **ints) {
     if (str == NULL) {
@@ -50,7 +97,7 @@ size_t read_ints(char *str, int **ints) {
     return i;
 }
 
-int read_adp(int n, struct adp *adp) {
+int read_adp(int n, struct adp *adp, long *ptree) {
     char buf[BUF_SIZE];
     int *ints;
     size_t ints_len;
@@ -65,6 +112,7 @@ int read_adp(int n, struct adp *adp) {
         adp[i].a = ints[0];
         adp[i].d = ints[1];
         adp[i].p = ints[2];
+        fenwick_intervalupdate(ptree, n, i, i+1, adp[i].p);
         free(ints);
     }
     return 0;
@@ -90,20 +138,22 @@ long factorial_mod(long n, long mod, long acc) {
     return acc;
 }
 
-int min_const_diff(int n, struct adp *adp, int i, int j) {
+int min_const_diff(int n, struct adp *adp, long *ptree, int i, int j) {
     if (i < 1 || j > n) {
         return 1;
     }
     long k = 0;
     long v = 1;
+    long p;
     int l;
     for (l = i-1; l < j; l++) {
-        if (adp[l].p > 0) {
-            k += adp[l].p;
+        p = fenwick_get(ptree, n, l);
+        if (p > 0) {
+            k += p;
             if (adp[l].d == 0) {
-                v = pow_mod(adp[l].a, adp[l].p, BIG_MOD, v);
+                v = pow_mod(adp[l].a, p, BIG_MOD, v);
             } else {
-                v = pow_mod(adp[l].d, adp[l].p, BIG_MOD, v);
+                v = pow_mod(adp[l].d, p, BIG_MOD, v);
             }
         }
     }
@@ -112,18 +162,15 @@ int min_const_diff(int n, struct adp *adp, int i, int j) {
     return 0;
 }
 
-int add_powers(int n, struct adp *adp, int i, int j, int v) {
+int add_powers(int n, struct adp *adp, long *ptree, int i, int j, int v) {
     if (i < 1 || j > n) {
         return 1;
     }
-    int k;
-    for (k = i-1; k < j; k++) {
-        adp[k].p += v;
-    }
+    fenwick_intervalupdate(ptree, n, i-1, j, v);    
     return 0;
 }
 
-int handle_query(char *str, int n, struct adp *adp) {
+int handle_query(char *str, int n, struct adp *adp, long *ptree) {
     int *ints;
     int ints_len = read_ints(str, &ints);
     if (ints_len < 1) {
@@ -134,13 +181,13 @@ int handle_query(char *str, int n, struct adp *adp) {
         if (ints_len != 3) {
             return 1;
         }
-        return min_const_diff(n, adp, ints[1], ints[2]);
+        return min_const_diff(n, adp, ptree, ints[1], ints[2]);
     }
     if (query_type == 1) {
         if (ints_len != 4) {
             return 1;
         }
-        return add_powers(n, adp, ints[1], ints[2], ints[3]);
+        return add_powers(n, adp, ptree, ints[1], ints[2], ints[3]);
     }
     return 1;
 }
@@ -156,10 +203,11 @@ int main(int argc, char **argv) {
     }
 
     struct adp *adp = malloc(n * sizeof *adp);
-    if (adp == NULL) {
+    long *ptree = calloc(n, sizeof *ptree);
+    if (adp == NULL || ptree == NULL) {
         return 0;
     }
-    int err = read_adp(n, adp);
+    int err = read_adp(n, adp, ptree);
     if (err) {
         return 0;
     }
@@ -173,7 +221,7 @@ int main(int argc, char **argv) {
     int i;
     for (i = 0; i < q; i++) {
         fgets(buf, BUF_SIZE, stdin);
-        err = handle_query(buf, n, adp);
+        err = handle_query(buf, n, adp, ptree);
         if (err) {
             return 0;
         }
