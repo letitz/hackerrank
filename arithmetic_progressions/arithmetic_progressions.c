@@ -7,7 +7,8 @@
 
 #define INTS_START_SIZE 8
 #define INTS_DELIM " \t\n"
-#define BUF_SIZE 1024
+#define BUF_SIZE 1 << 20
+#define LINE_SIZE 16
 #define BIG_MOD 1000003
 
 struct adp {
@@ -109,27 +110,9 @@ long fenwick_intervalprod(long *fenwick, size_t n, size_t i, size_t j, long mod)
     // p_i ^ -1 = p_i ^ BIG_MOD - 2 in this field
     return pow_mod(p_i, BIG_MOD - 2, BIG_MOD, p_j);
 }
-// Add val to entire interval [i, j[ of the fenwick tree
-// Supposes the fenwick tree stores differences between elements
-void fenwick_intervalupdate(
-    long *fenwick,
-    size_t n,
-    size_t i,
-    size_t j,
-    long val)
-{
-    fenwick_update(fenwick, n, i, val);
-    fenwick_update(fenwick, n, j, -val);
-}
 
-// Get the ith value from the fenwick tree
-// Supposes the fenwick tree stores differences between elements
-long fenwick_get(long *fenwick, size_t n, size_t i) {
-    return fenwick_prefixsum(fenwick, n, i+1);
-}
-
-size_t read_ints(char *str, int **ints) {
-    if (str == NULL) {
+size_t read_ints(char *line, int **ints) {
+    if (line == NULL) {
         return 0;
     }
     size_t size = INTS_START_SIZE;
@@ -138,13 +121,15 @@ size_t read_ints(char *str, int **ints) {
         return 0;
     }
 
+    char *tok = line;
+    char *numend;
     size_t i = 0;
-    char *end;
-    long int tmp;
-    char *tok = strtok(str, INTS_DELIM);
-    while (tok != NULL) {
-        tmp = strtol(tok, &end, 10);
-        if (*end == '\0' || isspace(*end)) { // valid number found
+    long tmp;
+    while (*tok != '\n' && *tok != '\0') {
+        if (isspace(*tok)) {
+            tok++;
+        } else if (isdigit(*tok)) {
+            tmp = strtol(tok, &numend, 10);
             if (i == size) {
                 // If we have filled array, double its size
                 size *= 2;
@@ -156,21 +141,25 @@ size_t read_ints(char *str, int **ints) {
             // store in array
             (*ints)[i] = tmp;
             i++;
+            tok = numend;
+        } else {
+            free(*ints);
+            *ints = NULL;
+            return 0;
         }
-        tok = strtok(NULL, INTS_DELIM);
     }
     return i;
 }
 
-int read_adp(int n, struct adp *adp, long *ptree, long *vtree) {
-    char buf[BUF_SIZE];
+int read_adp(char *buf, int n, struct adp *adp, long *ptree, long *vtree) {
     int *ints;
     size_t ints_len;
 
     int i;
+    char *line;
     for (i = 0; i < n; i++) {
-        fgets(buf, BUF_SIZE, stdin);
-        ints_len = read_ints(buf, &ints);
+        line = strtok(NULL, "\n");
+        ints_len = read_ints(line, &ints);
         if (ints_len != 3) {
             return 1;
         }
@@ -241,11 +230,13 @@ int handle_query(char *str, int n, struct adp *adp, long *ptree, long *vtree) {
 
 int main(int argc, char **argv) {
     char buf[BUF_SIZE];
-    fgets(buf, BUF_SIZE, stdin);
+    fread(buf, BUF_SIZE, 1, stdin);
+
+    char *line = strtok(buf, "\n");
 
     char *end;
-    int n = strtol(buf, &end, 10);
-    if (!isspace(*end) || n < 1) {
+    int n = strtol(line, &end, 10);
+    if ((!isspace(*end) && *end != '\0') || n < 1) {
         return 0;
     }
 
@@ -255,21 +246,21 @@ int main(int argc, char **argv) {
     if (adp == NULL || ptree == NULL || vtree == NULL) {
         return 0;
     }
-    int err = read_adp(n, adp, ptree, vtree);
+    int err = read_adp(buf, n, adp, ptree, vtree);
     if (err) {
         return 0;
     }
 
-    fgets(buf, BUF_SIZE, stdin);
-    int q = strtol(buf, &end, 10);
-    if (!isspace(*end)) {
+    line = strtok(NULL, "\n");
+    int q = strtol(line, &end, 10);
+    if ((!isspace(*end) && *end != '\0') || q < 1) {
         return 0;
     }
 
     int i;
     for (i = 0; i < q; i++) {
-        fgets(buf, BUF_SIZE, stdin);
-        err = handle_query(buf, n, adp, ptree, vtree);
+        line = strtok(NULL, "\n");
+        err = handle_query(line, n, adp, ptree, vtree);
         if (err) {
             return 0;
         }
