@@ -7,7 +7,7 @@
 
 #define INTS_START_SIZE 8
 #define INTS_DELIM " \t\n"
-#define BUF_SIZE 1 << 20
+#define BUF_SIZE 10000000
 #define LINE_SIZE 16
 #define BIG_MOD 1000003
 
@@ -229,7 +229,10 @@ int handle_query(char *str, int n, struct adp *adp, long *ptree, long *vtree) {
 }
 
 int main(int argc, char **argv) {
-    char buf[BUF_SIZE];
+    char *buf = malloc(BUF_SIZE * sizeof *buf);
+    if (buf == NULL) {
+        return 0;
+    }
     fread(buf, BUF_SIZE, 1, stdin);
 
     char *line = strtok(buf, "\n");
