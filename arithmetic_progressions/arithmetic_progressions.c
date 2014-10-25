@@ -14,7 +14,6 @@ struct adp {
     long a;
     long d;
     long p;
-    long factor;
 };
 
 // Add val to element i in fenwick tree
@@ -112,7 +111,7 @@ int read_adp(int n, struct adp *adp, long *ptree) {
         adp[i].a = ints[0];
         adp[i].d = ints[1];
         adp[i].p = ints[2];
-        fenwick_intervalupdate(ptree, n, i, i+1, adp[i].p);
+        fenwick_update(ptree, n, i, ints[2]);
         free(ints);
     }
     return 0;
@@ -142,21 +141,16 @@ int min_const_diff(int n, struct adp *adp, long *ptree, int i, int j) {
     if (i < 1 || j > n) {
         return 1;
     }
-    long k = 0;
     long v = 1;
     long p;
     int l;
     for (l = i-1; l < j; l++) {
-        p = fenwick_get(ptree, n, l);
+        p = adp[l].p;
         if (p > 0) {
-            k += p;
-            if (adp[l].d == 0) {
-                v = pow_mod(adp[l].a, p, BIG_MOD, v);
-            } else {
-                v = pow_mod(adp[l].d, p, BIG_MOD, v);
-            }
+            v = pow_mod(adp[l].d, p, BIG_MOD, v);
         }
     }
+    long k = fenwick_intervalsum(ptree, n, i-1, j);
     v = factorial_mod(k, BIG_MOD, v);
     printf("%ld %ld\n", k, v);
     return 0;
@@ -166,7 +160,11 @@ int add_powers(int n, struct adp *adp, long *ptree, int i, int j, int v) {
     if (i < 1 || j > n) {
         return 1;
     }
-    fenwick_intervalupdate(ptree, n, i-1, j, v);    
+    int k;
+    for (k = i-1; k < j; k++) {
+        fenwick_update(ptree, n, k, v);
+        adp[k].p += v;
+    }
     return 0;
 }
 
