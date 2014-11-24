@@ -5,17 +5,40 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "segtree.h"
+
 #define INTS_START_SIZE 8
 #define INTS_DELIM " \t\n"
 #define BUF_SIZE 10000000
 #define LINE_SIZE 16
 #define BIG_MOD 1000003
 
+long INVERSES[BIG_MOD];
+
 struct adp {
     long a;
     long d;
     long p;
+    long psum; // Cumulative sum of p values
+    long dpowp; // d ^ p
+    long dprod; // Cumulative product of d values
+    long dpowprod; // Cumulative product of d ^ p values
 };
+
+void calc_inverses() {
+    long tmp[BIG_MOD - 2];
+    long acc = 2; // powers of 2 will run the full range of the set
+    int i;
+    for (i = 0; i < BIG_MOD - 2; i++) {
+        tmp[i] = acc;
+        acc = (acc * 2) % BIG_MOD;
+    }
+    INVERSES[0] = 0;
+    INVERSES[1] = 1;
+    for (i = 0; i < BIG_MOD - 2; i++) {
+        INVERSES[tmp[i]] = tmp[BIG_MOD - 3 - i];
+    }
+}
 
 long pow_mod(long a, long b, long mod, long acc) {
     long powa = a % mod;
@@ -37,6 +60,7 @@ long factorial_mod(long n, long mod, long acc) {
     return acc;
 }
 
+/*
 long *fenwick_make(size_t n) {
     long *fenwick = calloc(n, sizeof *fenwick);
     return fenwick;
@@ -107,9 +131,9 @@ long fenwick_prefixprod(long *fenwick, size_t n, size_t i, long mod) {
 long fenwick_intervalprod(long *fenwick, size_t n, size_t i, size_t j, long mod) {
     long p_j = fenwick_prefixprod(fenwick, n, j, mod);
     long p_i = fenwick_prefixprod(fenwick, n, i, mod);
-    // p_i ^ -1 = p_i ^ BIG_MOD - 2 in this field
-    return pow_mod(p_i, BIG_MOD - 2, BIG_MOD, p_j);
+    return (p_j * INVERSES[p_i]) % BIG_MOD;
 }
+*/
 
 size_t read_ints(char *line, int **ints) {
     if (line == NULL) {
@@ -151,12 +175,16 @@ size_t read_ints(char *line, int **ints) {
     return i;
 }
 
-int read_adp(char *buf, int n, struct adp *adp, long *ptree, long *vtree) {
+int read_adp(char *buf, int n, struct adp *adp) {
     int *ints;
     size_t ints_len;
 
     int i;
     char *line;
+    long dpowp;
+    long psum = 0;
+    long dprod = 1;
+    long dpowprod = 1;
     for (i = 0; i < n; i++) {
         line = strtok(NULL, "\n");
         ints_len = read_ints(line, &ints);
@@ -166,47 +194,105 @@ int read_adp(char *buf, int n, struct adp *adp, long *ptree, long *vtree) {
         adp[i].a = ints[0];
         adp[i].d = ints[1];
         adp[i].p = ints[2];
-        long v = pow_mod(adp[i].d, adp[i].p, BIG_MOD, 1);
-        fenwick_produpdate(vtree, n, i, v, BIG_MOD);
-        fenwick_update(ptree, n, i, ints[2]);
+
+        psum += adp[i].p;
+        adp[i].psum = psum;
+
+        dpowp = pow_mod(adp[i].d, adp[i].p, BIG_MOD, 1);
+        adp[i].dpowp = dpowp;
+        
+        dprod = (dprod * adp[i].d) % BIG_MOD;
+        adp[i].dprod = dprod;
+        
+        dpowprod = (dpowprod * dpowp) % BIG_MOD;
+        adp[i].dpowprod = dpowprod;
+        
         free(ints);
     }
     return 0;
 }
 
+// Calculate for [i, j[
+void segtree_mcd(
+        struct adp *adp,
+        struct segtree *ptree,
+        int i,
+        int j,
+        long *k,
+        long *dprod)
+{
+    if (!ptree) {
+        return;
+    }
+    
+    // We need to calculate the sum of the p values
+    // and the product of the d^p at the same time
+
+    *k += ptree->v * (j-i);
+
+    // dtmp is the product of all d values in [i, j[
+    if (ptree->v > 0) {
+        long dtmp = adp[j-1].dprod;
+        if (i > 0) {
+            dtmp = (dtmp * INVERSES[adp[i-1].dprod]) % BIG_MOD;
+        }
+
+        *dprod = pow_mod(dtmp, ptree->v, BIG_MOD, *dprod);
+    }
+
+    int mid = (ptree->i + ptree->j) / 2;
+    
+    if (j <= mid) {
+        segtree_mcd(adp, ptree->left, i, j, k, dprod);
+        return;
+    }
+
+    if (i >= mid) {
+        segtree_mcd(adp, ptree->right, i, j, k, dprod);
+        return;
+    }
+    // i < mid && j > mid
+    segtree_mcd(adp, ptree->left, i, mid, k, dprod);
+    segtree_mcd(adp, ptree->right, mid, j, k, dprod);
+}
+
+// Calculate and print for [i-1, j-1]
 int min_const_diff(
     int n,
     struct adp *adp,
-    long *ptree,
-    long *vtree,
+    struct segtree *ptree,
     int i,
     int j)
 {
     if (i < 1 || j > n) {
         return 1;
     }
-    long v = fenwick_intervalprod(vtree, n, i-1, j, BIG_MOD);
-    long k = fenwick_intervalsum(ptree, n, i-1, j);
-    v = factorial_mod(k, BIG_MOD, v);
+    // k is initialized to the sum of initial p values in [i-1, j-1]
+    long k = adp[j-1].psum;
+    // dprod is initializaed to the product of d^p values in [i-1, j-1]
+    long dprod = adp[j-1].dpowprod;
+    if (i >= 2) {
+        k -= adp[i-2].psum;
+        dprod = (dprod * INVERSES[adp[i-2].dpowprod]) % BIG_MOD;
+    }
+    segtree_mcd(adp, ptree, i-1, j, &k, &dprod);
+    long v = factorial_mod(k, BIG_MOD, dprod);
     printf("%ld %ld\n", k, v);
     return 0;
 }
 
-int add_powers(int n, struct adp *adp, long *ptree, long *vtree, int i, int j, int v) {
+int add_powers(int n, struct segtree *ptree, int i, int j, int v) {
     if (i < 1 || j > n) {
         return 1;
     }
-    int k;
-    for (k = i-1; k < j; k++) {
-        long factor = pow_mod(adp[k].d, v, BIG_MOD, 1);
-        fenwick_produpdate(vtree, n, k, factor, BIG_MOD);
-        fenwick_update(ptree, n, k, v);
-        adp[k].p += v;
-    }
+    //segtree_print(ptree);
+    //printf("Adding %ld to [%d,%d]\n", v, i, j);
+    segtree_add(ptree, i-1, j, v);
+    //segtree_print(ptree);
     return 0;
 }
 
-int handle_query(char *str, int n, struct adp *adp, long *ptree, long *vtree) {
+int handle_query(char *str, int n, struct adp *adp, struct segtree *ptree) {
     int *ints;
     int ints_len = read_ints(str, &ints);
     if (ints_len < 1) {
@@ -217,18 +303,21 @@ int handle_query(char *str, int n, struct adp *adp, long *ptree, long *vtree) {
         if (ints_len != 3) {
             return 1;
         }
-        return min_const_diff(n, adp, ptree, vtree, ints[1], ints[2]);
+        return min_const_diff(n, adp, ptree, ints[1], ints[2]);
     }
     if (query_type == 1) {
         if (ints_len != 4) {
             return 1;
         }
-        return add_powers(n, adp, ptree, vtree, ints[1], ints[2], ints[3]);
+        return add_powers(n, ptree, ints[1], ints[2], ints[3]);
     }
     return 1;
 }
 
 int main(int argc, char **argv) {
+    // Prep work
+    calc_inverses();
+
     char *buf = malloc(BUF_SIZE * sizeof *buf);
     if (buf == NULL) {
         return 0;
@@ -244,12 +333,11 @@ int main(int argc, char **argv) {
     }
 
     struct adp *adp = malloc(n * sizeof *adp);
-    long *ptree = fenwick_make(n);
-    long *vtree = fenwick_prodmake(n);
-    if (adp == NULL || ptree == NULL || vtree == NULL) {
+    struct segtree *ptree = segtree_new_simple(n);
+    if (adp == NULL || ptree == NULL) {
         return 0;
     }
-    int err = read_adp(buf, n, adp, ptree, vtree);
+    int err = read_adp(buf, n, adp);
     if (err) {
         return 0;
     }
@@ -263,7 +351,7 @@ int main(int argc, char **argv) {
     int i;
     for (i = 0; i < q; i++) {
         line = strtok(NULL, "\n");
-        err = handle_query(line, n, adp, ptree, vtree);
+        err = handle_query(line, n, adp, ptree);
         if (err) {
             return 0;
         }
