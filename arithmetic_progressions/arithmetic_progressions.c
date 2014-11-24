@@ -212,7 +212,7 @@ int read_adp(char *buf, int n, struct adp *adp) {
     return 0;
 }
 
-// Calculate for [i, j[
+// Calculate sum of p and product of d^p for [i, j[
 void segtree_mcd(
         struct adp *adp,
         struct segtree *ptree,
