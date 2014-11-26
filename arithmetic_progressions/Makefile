@@ -1,6 +1,6 @@
 # Rudimetary makefile
 CC=gcc
-CFLAGS= -ggdb 
+CFLAGS= -ggdb --std=c11
 
 all: ap
 
