@@ -13,17 +13,9 @@
 #define LINE_SIZE 16
 #define BIG_MOD 1000003
 
-long INVERSES[BIG_MOD];
+/* Arithmetic modulo BIG_MOD */
 
-struct adp {
-    long a;
-    long d;
-    long p;
-    long psum; // Cumulative sum of p values
-    long dpowp; // d ^ p
-    long dprod; // Cumulative product of d values
-    long dpowprod; // Cumulative product of d ^ p values
-};
+long INVERSES[BIG_MOD];
 
 void calc_inverses() {
     long tmp[BIG_MOD - 2];
@@ -60,81 +52,19 @@ long factorial_mod(long n, long mod, long acc) {
     return acc;
 }
 
-/*
-long *fenwick_make(size_t n) {
-    long *fenwick = calloc(n, sizeof *fenwick);
-    return fenwick;
-}
+/* The actual logic */
 
-long *fenwick_prodmake(size_t n) {
-    long *fenwick = malloc(n * sizeof *fenwick);
-    if (fenwick == NULL) {
-        return NULL;
-    }
-    size_t i;
-    for (i = 0; i < n; i++) {
-        fenwick[i] = 1;
-    }
-    return fenwick;
-}
+struct adp {
+    long a;
+    long d;
+    long p;
+    long psum; // Cumulative sum of p values
+    long dpowp; // d ^ p
+    long dprod; // Cumulative product of d values
+    long dpowprod; // Cumulative product of d ^ p values
+};
 
-// Add val to element i in fenwick tree
-void fenwick_update(long *fenwick, size_t n, size_t i, long val) {
-    i++;
-    if (i < 1 || i > n) {
-        return;
-    }
-    while (i <= n) {
-        fenwick[i-1] += val;
-        i += i & -i; // parent
-    }
-}
-
-// Sum of elements in [0, i[
-long fenwick_prefixsum(long *fenwick, size_t n, size_t i) {
-    long sum = 0;
-    while (i > 0) {
-        sum += fenwick[i-1];
-        i -= i & -i; // predecessor
-    }
-    return sum;
-}
-
-// Sum of elements in [i, j[
-long fenwick_intervalsum(long *fenwick, size_t n, size_t i, size_t j) {
-    return fenwick_prefixsum(fenwick, n, j) - fenwick_prefixsum(fenwick, n, i);
-}
-
-// Multiply element i by val in fenwick tree of products
-void fenwick_produpdate(long *fenwick, size_t n, size_t i, long val, long mod) {
-    i++;
-    if (i < 1 || i > n) {
-        return;
-    }
-    while (i <= n) {
-        fenwick[i-1] = (fenwick[i-1] * val) % mod;
-        i += i & -i; // parent
-    }
-}
-
-// Product of elements in [0, i[
-long fenwick_prefixprod(long *fenwick, size_t n, size_t i, long mod) {
-    long prod = 1;
-    while (i > 0) {
-        prod = (prod * fenwick[i-1]) % mod;
-        i -= i & -i; // predecessor
-    }
-    return prod;
-}
-
-// Product of elements in [i, j[
-long fenwick_intervalprod(long *fenwick, size_t n, size_t i, size_t j, long mod) {
-    long p_j = fenwick_prefixprod(fenwick, n, j, mod);
-    long p_i = fenwick_prefixprod(fenwick, n, i, mod);
-    return (p_j * INVERSES[p_i]) % BIG_MOD;
-}
-*/
-
+/* Read space-separated integers */
 size_t read_ints(char *line, int **ints) {
     if (line == NULL) {
         return 0;
@@ -281,13 +211,59 @@ int min_const_diff(
     return 0;
 }
 
-int add_powers(int n, struct segtree *ptree, int i, int j, int v) {
+// Flatten tree and add it to the adp array
+void segtree_flatten(struct segtree *ptree, struct adp *adp, int n) {
+    if (!adp || !ptree) {
+        return;
+    }
+
+    segtree_flatten(ptree->left, adp, n);
+    segtree_free(ptree->left);
+    ptree->left = NULL;
+    
+    segtree_flatten(ptree->right, adp, n);
+    segtree_free(ptree->right);
+    ptree->right = NULL;
+
+    if (ptree->v != 0) {
+        for (int k = ptree->i; k < ptree->j && k < n; k++) {
+            adp[k].p += ptree->v;
+        }
+    }
+
+    ptree->v = 0;
+}
+
+void update_adp(struct adp *adp, int n) {
+    int psum = 0;
+    int dpowprod = 1;
+    for (int i = 0; i < n; i++) {
+        psum += adp[i].p;
+        adp[i].psum = psum;
+
+        adp[i].dpowp = pow_mod(adp[i].d, adp[i].p, BIG_MOD, 1);
+
+        dpowprod = (dpowprod * adp[i].dpowp) % BIG_MOD;
+        adp[i].dpowprod = dpowprod;
+    }
+}
+
+int ptree_size = 0;
+
+int add_powers(int n, struct adp *adp, struct segtree *ptree, int i, int j, int v) {
     if (i < 1 || j > n) {
         return 1;
     }
     //segtree_print(ptree);
     //printf("Adding %ld to [%d,%d]\n", v, i, j);
     segtree_add(ptree, i-1, j, v);
+    ptree_size++;
+    if (ptree_size * ptree_size >= n) {
+        //puts("Flattening the tree");
+        segtree_flatten(ptree, adp, n);
+        update_adp(adp, n);
+        ptree_size = 0;
+    }
     //segtree_print(ptree);
     return 0;
 }
@@ -309,7 +285,7 @@ int handle_query(char *str, int n, struct adp *adp, struct segtree *ptree) {
         if (ints_len != 4) {
             return 1;
         }
-        return add_powers(n, ptree, ints[1], ints[2], ints[3]);
+        return add_powers(n, adp, ptree, ints[1], ints[2], ints[3]);
     }
     return 1;
 }
