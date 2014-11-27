@@ -4,7 +4,7 @@ CFLAGS= -ggdb --std=c11
 
 all: ap
 
-segtree.o: segtree.c
+%.o: %.c
 	$(CC) -o $@ -c $^ $(CFLAGS)
 
 ap: arithmetic_progressions.c segtree.o
