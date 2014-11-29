@@ -7,8 +7,8 @@ all: ap
 %.o: %.c
 	$(CC) -o $@ -c $^ $(CFLAGS)
 
-ap: arithmetic_progressions.c segtree.o
+ap: arithmetic_progressions.c itree.o
 	$(CC) -o $@ $^ $(CFLAGS)
 
 clean:
-	rm -f segtree.o ap
+	rm -f segtree.o itree.o ap
